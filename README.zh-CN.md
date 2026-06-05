@@ -139,7 +139,7 @@ src/renderer/controller.ts    UI 控制器、紧凑问答、语言、设置、�
 src/capture/main.ts           截图交互
 src/index.html                主窗口 HTML 壳
 src/capture.html              截图窗口 HTML 壳
-src/styles.css                主界面样式
+src/styles.less               共享变量和基础样式
 src/capture.css               截图窗口样式
 src/assets/                   应用图标
 vite.renderer.config.ts       Vite 渲染进程构建配置

@@ -308,7 +308,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section class="settings-panel panel" @click="closeModelMenu()">
+  <section class="settings-panel panel" :class="{ 'is-light': state.theme === 'light' }" @click="closeModelMenu()">
     <div class="panel-row">
       <h2>{{ t('interfaceTitle') }}</h2>
       <span class="status-text" id="settingsStatus">{{ statusText }}</span>
@@ -498,3 +498,388 @@ onUnmounted(() => {
     </button>
   </section>
 </template>
+
+
+<style scoped lang="less">
+.settings-panel {
+  position: relative;
+  z-index: 5;
+  min-height: 0;
+  height: fit-content;
+}
+
+.theme-switch {
+  height: 30px;
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.theme-choice {
+  min-width: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 800;
+  transition: color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+.theme-choice.is-active {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.105);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.provider-stack {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.permission-card {
+  min-width: 0;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid rgba(106, 168, 255, 0.22);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(106, 168, 255, 0.06), rgba(255, 255, 255, 0.028));
+  box-shadow: inset 3px 0 0 rgba(106, 168, 255, 0.32);
+}
+
+.provider-head {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.provider-head strong {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 16px;
+}
+
+.provider-head span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.system-card,
+.lan-card,
+.guide-card {
+  min-width: 0;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid rgba(157, 178, 194, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.032);
+}
+
+.system-card {
+  box-shadow: inset 3px 0 0 rgba(157, 178, 194, 0.24);
+}
+
+.lan-card {
+  border-color: rgba(106, 168, 255, 0.2);
+  box-shadow: inset 3px 0 0 rgba(106, 168, 255, 0.26);
+}
+
+.lan-share-url {
+  min-width: 0;
+  margin-top: 4px;
+  padding: 7px 8px;
+  border: 1px solid rgba(157, 178, 194, 0.16);
+  border-radius: 7px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.032);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 15px;
+  overflow-wrap: anywhere;
+}
+
+.guide-card {
+  border-color: rgba(67, 240, 206, 0.18);
+  box-shadow: inset 3px 0 0 rgba(67, 240, 206, 0.26);
+}
+
+.guide-tabs {
+  min-width: 0;
+  display: inline-flex;
+  gap: 4px;
+}
+
+.guide-tab {
+  height: 22px;
+  min-width: 34px;
+  padding: 0 7px;
+  border: 1px solid rgba(157, 178, 194, 0.16);
+  border-radius: 6px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.guide-tab.is-active,
+.guide-tab:hover {
+  color: var(--accent);
+  border-color: rgba(67, 240, 206, 0.34);
+  background: rgba(67, 240, 206, 0.09);
+}
+
+.guide-body {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.guide-item {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.guide-item strong {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 15px;
+}
+
+.guide-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 15px;
+}
+
+.permission-toggle {
+  min-width: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.permission-toggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+}
+
+.permission-workspace {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  align-items: end;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.field {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  color: #a7b4c0;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.field input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid rgba(157, 178, 194, 0.2);
+  border-radius: 7px;
+  outline: 0;
+  color: var(--ink);
+  background: rgba(3, 7, 12, 0.62);
+  font-size: 12px;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.field input::placeholder {
+  color: #526170;
+}
+
+.field input:focus {
+  border-color: rgba(67, 240, 206, 0.58);
+  box-shadow: 0 0 0 3px rgba(67, 240, 206, 0.1);
+  background: rgba(5, 9, 15, 0.78);
+}
+
+.permission-actions {
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 4px;
+}
+
+.permission-link-button {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.permission-link-button:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.permission-link-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.field-icon-button {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(157, 178, 194, 0.2);
+  border-radius: 7px;
+  color: #99a7b4;
+  background: rgba(255, 255, 255, 0.045);
+  transform: translateZ(0);
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease, transform 120ms var(--ease-snap);
+}
+
+.field-icon-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.field-icon-button:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: rgba(67, 240, 206, 0.38);
+  background: rgba(67, 240, 206, 0.1);
+}
+
+.field-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.status-text,
+.inline-status {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.settings-panel.is-light{
+  background: linear-gradient(180deg, rgba(255, 250, 239, 0.97), rgba(238, 244, 239, 0.91));
+}
+
+.settings-panel.is-light .theme-switch{
+  border-color: rgba(58, 59, 51, 0.14);
+  background: rgba(221, 228, 221, 0.72);
+  box-shadow: inset 0 1px 2px rgba(38, 35, 29, 0.08);
+}
+
+.settings-panel.is-light .theme-choice{
+  color: #6f7771;
+}
+
+.settings-panel.is-light .theme-choice.is-active{
+  color: #241b18;
+  background: linear-gradient(180deg, rgba(255, 248, 236, 0.98), rgba(240, 225, 214, 0.94));
+  box-shadow: 0 7px 14px rgba(91, 57, 48, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.settings-panel.is-light .permission-card{
+  border-color: rgba(106, 168, 255, 0.22);
+  background: linear-gradient(180deg, rgba(231, 239, 255, 0.88), rgba(255, 248, 236, 0.82));
+  box-shadow: inset 3px 0 0 rgba(106, 168, 255, 0.34), 0 8px 18px rgba(52, 45, 35, 0.06);
+}
+
+.settings-panel.is-light .provider-head strong{
+  color: #18221f;
+}
+
+.settings-panel.is-light .provider-head span,
+.settings-panel.is-light .field,
+.settings-panel.is-light .permission-toggle,
+.settings-panel.is-light .permission-link-button {
+  color: #6b746f;
+}
+
+.settings-panel.is-light .field input {
+  border-color: rgba(54, 59, 52, 0.16);
+  color: #1d2926;
+  background: linear-gradient(180deg, rgba(255, 253, 247, 0.92), rgba(244, 247, 243, 0.86));
+}
+
+.settings-panel.is-light .field input::placeholder {
+  color: #8b938b;
+}
+
+.settings-panel.is-light .field input:focus {
+  border-color: rgba(214, 63, 99, 0.34);
+  background: rgba(255, 252, 246, 0.96);
+  box-shadow: 0 0 0 3px rgba(214, 63, 99, 0.09);
+}
+
+.settings-panel.is-light .system-card,
+.settings-panel.is-light .lan-card,
+.settings-panel.is-light .guide-card{
+  border-color: rgba(54, 59, 52, 0.14);
+  background: rgba(255, 253, 247, 0.82);
+  box-shadow: inset 3px 0 0 rgba(20, 121, 111, 0.2), 0 8px 18px rgba(52, 45, 35, 0.05);
+}
+
+.settings-panel.is-light .field-icon-button {
+  color: #596662;
+  border-color: rgba(54, 59, 52, 0.15);
+  background: rgba(250, 248, 240, 0.74);
+}
+
+.settings-panel.is-light .field-icon-button:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: rgba(214, 63, 99, 0.28);
+  background: rgba(255, 232, 224, 0.72);
+}
+
+.settings-panel.is-light .command-button.quiet {
+  border-color: rgba(214, 63, 99, 0.28);
+  color: #8f203d;
+  background: linear-gradient(180deg, rgba(255, 239, 230, 0.94), rgba(248, 221, 214, 0.9));
+  box-shadow: 0 9px 18px rgba(120, 57, 50, 0.1);
+}
+
+.settings-panel.is-light .command-button.quiet:hover:not(:disabled) {
+  border-color: rgba(214, 63, 99, 0.44);
+  background: linear-gradient(180deg, rgba(255, 244, 235, 0.98), rgba(252, 226, 218, 0.96));
+}
+</style>
