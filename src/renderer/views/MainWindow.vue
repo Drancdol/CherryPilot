@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import HistoryPanel from '@/renderer/components/HistoryPanel.vue';
 import SettingsPanel from '@/renderer/components/SettingsPanel.vue';
 import TitleBar from '@/renderer/components/TitleBar.vue';
 import { companionState } from '@/renderer/composables/companionState';
@@ -13,7 +12,6 @@ const state = companionState;
 
     <main class="workspace settings-workspace">
       <SettingsPanel />
-      <HistoryPanel class="main-history-panel"/>
     </main>
   </div>
 </template>
@@ -43,11 +41,11 @@ const state = companionState;
   gap: 9px;
   padding: 9px;
   height: 100%;
-  overflow-y: scroll;
+  overflow: hidden;
 }
 
 .settings-workspace {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .app-shell.is-dragging {
@@ -88,11 +86,9 @@ const state = companionState;
   color: #66706c;
 }
 
-.settings-workspace {
-  grid-template-rows: minmax(0, 1fr);
-}
-.main-history-panel{
-  display: none;
+.settings-workspace :deep(.settings-panel) {
+  height: 100%;
+  overflow: auto;
 }
 @media (max-height: 680px) {
   .workspace {
@@ -102,7 +98,7 @@ const state = companionState;
   }
 
   .settings-workspace {
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .context-panel,

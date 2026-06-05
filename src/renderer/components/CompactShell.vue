@@ -1267,7 +1267,9 @@ watch(
   right: 0;
   z-index: 42;
   width: min(360px, 100%);
-  max-height: 174px;
+  height: 174px;
+  max-height: calc(100% - 42px);
+  display: flex;
   padding: 10px;
   overflow: hidden;
   border: 1px solid rgba(157, 178, 194, 0.18);
@@ -1292,8 +1294,17 @@ watch(
     padding: 0 8px;
   }
 
+  :deep(.history-panel) {
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
   :deep(.history-list) {
-    max-height: 118px;
+    min-height: 0;
+    max-height: none;
     padding-right: 2px;
     overflow: auto;
   }

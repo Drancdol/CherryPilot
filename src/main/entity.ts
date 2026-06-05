@@ -67,7 +67,9 @@ export const DEFAULT_SETTINGS = {
   lanShare: {
     enabled: false,
     port: 0,
-    token: ''
+    token: '',
+
+    deviceId: ''
   }
 };
 // 展开态、悬浮图标态和悬浮工具态的窗口尺寸。

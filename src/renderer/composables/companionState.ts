@@ -1,8 +1,8 @@
-﻿import { reactive } from 'vue';
+﻿import { reactive, watch } from 'vue';
 import { GUIDE_LANGUAGE_KEY, PROVIDERS } from '@/renderer/entity';
 import { normalizeGuideLanguage, textFor } from '@/renderer/composables/companionText';
 
-// 鍒濆鍖栧紩瀵艰瑷€锛宭ocalStorage 涓嶅彲鐢ㄦ椂鍥為€€涓枃銆?
+// 初始化引导语言，localStorage 不可用时回退中文。
 function initialGuideLanguage() {
   try {
     return normalizeGuideLanguage(localStorage.getItem(GUIDE_LANGUAGE_KEY));
@@ -11,7 +11,7 @@ function initialGuideLanguage() {
   }
 }
 
-// 鍘嗗彶璁板綍鏉＄洰锛屼緵鍘嗗彶闈㈡澘鍜屾湰鍦版寔涔呭寲澶嶇敤銆?
+// 历史记录条目，供历史面板和本地持久化复用。
 export interface HistoryEntry {
   id: string;
   askedAt: string;
@@ -23,10 +23,10 @@ export interface HistoryEntry {
   attachmentCount?: number;
 }
 
-// 闄勪欢鏉＄洰娌跨敤 preload bridge 鐨勯檮浠剁被鍨嬶紝閬垮厤 renderer 閲嶅澹版槑缁撴瀯銆?
+// 附件条目沿用 preload bridge 的附件类型，避免 renderer 重复声明结构。
 export type AttachmentItem = CompanionAttachmentItem;
 
-// 鎮诞绐楁嫋鎷借繃绋嬩腑鐨勬寚閽堢姸鎬併€?
+// 悬浮窗拖拽过程中的指针状态。
 interface CompactDragState {
   pointerId: number;
   startX: number;
@@ -35,14 +35,14 @@ interface CompactDragState {
   started: boolean;
 }
 
-// renderer 鍏变韩鐘舵€侊紝鎵€鏈夌粍浠跺拰 composable 閮戒粠杩欓噷璇诲啓鐣岄潰鐘舵€併€?
+// renderer 共享状态，所有组件和 composable 都从这里读写界面状态。
 export const companionState = reactive({
-  // 褰撳墠澶栭儴绐楀彛涓婁笅鏂囧拰鎴浘/闄勪欢涓婁笅鏂囥€?
+  // 当前外部窗口上下文和截图/附件上下文。
   activeContext: { title: '', checkedAt: null as string | null },
   screenshotDataUrl: '',
   screenshotPreviewOpen: false,
   attachments: [] as AttachmentItem[],
-  // 妯″瀷鎺ュ彛閰嶇疆鍜屽悇鎺ュ彛宸叉媺鍙栫殑妯″瀷鍒楄〃銆?
+  // 模型接口配置和各接口已拉取的模型列表。
   modelLists: PROVIDERS.map(() => [] as string[]),
   providers: PROVIDERS.map((provider) => ({
     ...provider,
@@ -53,11 +53,11 @@ export const companionState = reactive({
     isRefreshing: false
   })),
   activeProviderIndex: 0,
-  // 鍘嗗彶璁板綍銆佷富棰樺拰寮曞璇█銆?
+  // 历史记录、主题和引导语言。
   history: [] as HistoryEntry[],
   theme: 'dark' as 'dark' | 'light',
   guideLanguage: initialGuideLanguage(),
-  // 杩愯閰嶇疆锛氭€ц兘妯″紡銆佺數鑴戞潈闄愩€佸紑鏈哄惎鍔ㄥ拰 LAN 鍒嗕韩銆?
+  // 运行配置：性能模式、电脑权限、开机启动和 LAN 分享。
   lowCpuMode: true,
   computerAccess: {
     enabled: false,
@@ -69,9 +69,13 @@ export const companionState = reactive({
     enabled: false,
     port: 0,
     token: '',
-    urls: [] as string[]
+    deviceId: '',
+    urls: [] as string[],
+    deviceName: '',
+    diagnostics: {} as CompanionLanShareDiagnostics,
+    devices: [] as CompanionLanShareDevice[]
   },
-  // 鍥炵瓟鍖哄拰鎮诞杈撳叆鐨勬樉绀虹姸鎬併€?
+  // 回答区和悬浮输入的显示状态。
   statusText: '',
   answerContent: '',
   answerPending: false,
@@ -81,7 +85,7 @@ export const companionState = reactive({
   compactModelPanelMessage: '',
   compactModelLoading: false,
   compactHistoryPanelOpen: false,
-  // 璇煶杈撳叆鐩稿叧鐘舵€佸拰褰曢煶鍒嗘瀹氭椂鍣ㄣ€?
+  // 语音输入相关状态和录音分段定时器。
   isRecording: false,
   voiceProcessing: false,
   mediaRecorder: null as MediaRecorder | null,
@@ -91,7 +95,7 @@ export const companionState = reactive({
   voiceSegmentTimer: null as ReturnType<typeof setTimeout> | null,
   voiceRestartTimer: null as ReturnType<typeof setTimeout> | null,
   voiceMimeType: '',
-  // 涓荤獥鍙?鎮诞绐楁ā寮忛暅鍍忥紝瀹為檯绐楀彛杈圭晫鐢变富杩涚▼缁存姢銆?
+  // 主窗口/悬浮窗模式镜像，实际窗口边界由主进程维护。
   windowMode: 'expanded',
   dockSide: 'right',
   revealed: false,
@@ -100,7 +104,7 @@ export const companionState = reactive({
   contextMenuOpen: false,
   isBusy: false,
   pointerInWindow: false,
-  // 鎮诞鐞冩嫋鎷姐€佺偣鍑诲拰鑷姩鏀惰捣鐘舵€併€?
+  // 悬浮球拖拽、点击和自动收起状态。
   compactDrag: null as CompactDragState | null,
   compactDragFrame: null as number | null,
   compactDragPoint: null as CompanionPoint | null,
@@ -114,23 +118,54 @@ export const companionState = reactive({
 
 export type ProviderState = typeof companionState.providers[number];
 
-// 缁熶竴鍒囨崲鐣岄潰蹇欑鐘舵€併€?
+// 统一切换界面忙碌状态。
 export function setBusy(value: boolean) {
   companionState.isBusy = value;
 }
 
-// 鏇存柊搴曢儴/璁剧疆闈㈡澘鍙鐢ㄧ殑鐘舵€佹彁绀烘枃妗堛€?
+// 更新底部/设置面板可复用的状态提示文案。
 export function setStatusText(message: string) {
   companionState.statusText = message;
 }
 
-// 鏇存柊鎮诞鍥炵瓟鍐呭锛屽彲闄勫甫 pending 鐘舵€佸拰鐢熷浘缁撴灉銆?
+// 更新悬浮回答内容，可附带 pending 状态和生图结果。
 export function setCompactAnswer(content: string, pending = false, imageUrl = '') {
   companionState.answerContent = content || textFor(companionState.guideLanguage, 'waitingQuestion');
   companionState.answerPending = pending;
   companionState.answerImageUrl = imageUrl;
 }
 
-
-
-
+// 将关键状态同步到 body.dataset，供全局 CSS 根据模式和状态切换样式。
+export function useBodyDatasetSync() {
+  watch(
+    () => ({
+      theme: companionState.theme,
+      mode: companionState.windowMode,
+      dockSide: companionState.dockSide,
+      revealed: companionState.revealed,
+      docked: companionState.docked,
+      answerZoomed: companionState.answerZoomed,
+      busy: companionState.isBusy,
+      hasScreenshot: Boolean(companionState.screenshotDataUrl),
+      dragging: companionState.dragging,
+      contextMenuOpen: companionState.contextMenuOpen,
+      voice: companionState.isRecording
+        ? (companionState.voiceAwake ? 'awake' : 'listening')
+        : 'idle'
+    }),
+    (dataset) => {
+      document.body.dataset.theme = dataset.theme;
+      document.body.dataset.mode = dataset.mode;
+      document.body.dataset.dockSide = dataset.dockSide;
+      document.body.dataset.revealed = dataset.revealed ? 'true' : 'false';
+      document.body.dataset.docked = dataset.docked ? 'true' : 'false';
+      document.body.dataset.answerZoomed = dataset.answerZoomed ? 'true' : 'false';
+      document.body.dataset.busy = dataset.busy ? 'true' : 'false';
+      document.body.dataset.hasScreenshot = dataset.hasScreenshot ? 'true' : 'false';
+      document.body.dataset.dragging = dataset.dragging ? 'true' : 'false';
+      document.body.dataset.contextMenu = dataset.contextMenuOpen ? 'true' : 'false';
+      document.body.dataset.voice = dataset.voice;
+    },
+    { immediate: true }
+  );
+}

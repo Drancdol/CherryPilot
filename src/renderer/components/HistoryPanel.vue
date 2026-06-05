@@ -4,7 +4,7 @@ import { companionState, type HistoryEntry } from '@/renderer/composables/compan
 import { clearHistory, formatTime, historyMetaText } from '@/renderer/composables/useHistory';
 import { formatText, textFor } from '@/renderer/composables/companionText';
 
-defineProps<{
+const props = defineProps<{
   compact?: boolean;
 }>();
 
@@ -61,7 +61,7 @@ function detailMeta(item: HistoryEntry) {
 </script>
 
 <template>
-  <section class="history-panel panel" :class="{ 'is-light': state.theme === 'light' }">
+  <section class="history-panel panel" :class="{ 'is-light': state.theme === 'light', 'is-compact': props.compact }">
     <div class="panel-row">
       <h2>{{ t('history') }}</h2>
       <button
@@ -142,8 +142,10 @@ function detailMeta(item: HistoryEntry) {
 <style scoped lang="less">
 .history-panel {
   min-height: 0;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .ghost-button {
@@ -174,8 +176,8 @@ function detailMeta(item: HistoryEntry) {
 .history-list {
   min-height: 0;
   flex: 1;
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   margin-top: 9px;
   overflow: auto;
@@ -194,6 +196,7 @@ function detailMeta(item: HistoryEntry) {
 
 .history-item {
   min-width: 0;
+  flex: 0 0 auto;
   display: grid;
   gap: 6px;
   padding: 10px;
@@ -272,7 +275,10 @@ function detailMeta(item: HistoryEntry) {
 
 .history-detail {
   min-width: 0;
-  display: grid;
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
@@ -317,7 +323,9 @@ function detailMeta(item: HistoryEntry) {
 }
 
 .history-detail-answer {
-  max-height: 88px;
+  min-height: 0;
+  flex: 1;
+  max-height: none;
   overflow: auto;
   padding: 8px;
   border: 1px solid rgba(157, 178, 194, 0.14);

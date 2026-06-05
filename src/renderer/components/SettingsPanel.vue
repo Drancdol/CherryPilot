@@ -23,8 +23,10 @@ const saveBusy = ref(false);
 const startupBusy = ref(false);
 // 局域网共享切换的局部 loading 状态。
 const lanBusy = ref(false);
+const lanSendingDeviceId = ref('');
 // 更新状态监听的清理函数，组件卸载时取消订阅。
 let removeUpdateListener: (() => void) | undefined;
+let removeLanDevicesListener: (() => void) | undefined;
 
 // 当前语言文本读取器。
 const t = (key: Parameters<typeof textFor>[1]) => textFor(state.guideLanguage, key);
@@ -52,13 +54,51 @@ const guideItems = computed(() => GUIDE_CONTENT[state.guideLanguage]);
 // 设置区状态文案，未设置时显示等待 Key。
 const statusText = computed(() => state.statusText || t('waitingKey'));
 // 局域网共享地址，未开启或无地址时显示对应占位文案。
-const lanShareUrl = computed(() => {
+const lanDevices = computed(() => state.lanShare.devices || []);
+
+const lanShareSummary = computed(() => {
   if (!state.lanShare.enabled) {
     return t('lanUrlIdle');
   }
 
-  return state.lanShare.urls[0] || t('lanNoAddress');
+  return lanDevices.value.length > 0
+    ? ft('lanDeviceCount', { count: lanDevices.value.length })
+    : t('lanDevicesEmpty');
 });
+
+const lanDiagnosticText = computed(() => {
+  if (!state.lanShare.enabled) {
+    return '';
+  }
+
+  const diagnostics = state.lanShare.diagnostics || {};
+  const addresses = Array.isArray(diagnostics.addresses) ? diagnostics.addresses : [];
+  const port = diagnostics.port || state.lanShare.port || '-';
+  const discoveryPort = diagnostics.discoveryPort || 49328;
+  const deviceName = diagnostics.deviceName || state.lanShare.deviceName || 'CherryPilot';
+
+  if (addresses.length === 0) {
+    return state.guideLanguage === 'en'
+      ? `Local device: ${deviceName}. Waiting for a LAN address. Discovery UDP ${discoveryPort}.`
+      : `本机设备：${deviceName}。等待局域网地址，发现端口 UDP ${discoveryPort}。`;
+  }
+
+  return state.guideLanguage === 'en'
+    ? `Local device: ${deviceName}. Receiver ${addresses.map((address) => `${address}:${port}`).join(', ')}. Discovery UDP ${discoveryPort}.`
+    : `本机设备：${deviceName}。接收 ${addresses.map((address) => `${address}:${port}`).join('，')}。发现 UDP ${discoveryPort}。`;
+});
+
+const lanSecurityText = computed(() => (
+  state.guideLanguage === 'en'
+    ? 'Secure mode: discovery does not broadcast the receiver token. The sender verifies device identity, then the receiver must approve a 60-second one-time transfer ticket.'
+    : '安全模式：发现广播不带接收 token；发送前会校验设备身份，接收端确认后才生成 60 秒一次性传输票据。'
+));
+
+const lanTroubleshootingText = computed(() => (
+  state.guideLanguage === 'en'
+    ? 'If no device appears, enable LAN sharing on both computers, keep them on the same subnet, and allow this app plus UDP 49328 through the firewall.'
+    : '如果没有设备，确认两边都已开启局域网共享、处在同一网段，并允许防火墙通过本应用和 UDP 49328。'
+));
 
 // 关闭模型下拉菜单；传入索引时只关闭指定接口。
 function closeModelMenu(slotIndex: number | null = null) {
@@ -252,6 +292,42 @@ async function loadLanShareStatus() {
 }
 
 // 切换局域网共享，并同步保存设置。
+async function refreshLanDevices() {
+  try {
+    const devices = await window.companion.getLanShareDevices?.();
+    state.lanShare.devices = Array.isArray(devices) ? devices : [];
+  } catch {
+    state.lanShare.devices = [];
+  }
+}
+
+async function sendToLanDevice(device: CompanionLanShareDevice) {
+  if (!window.companion.sendLanShareToDevice) {
+    setStatusText(t('lanSendFailed'));
+    return;
+  }
+
+  lanSendingDeviceId.value = device.id;
+  setStatusText(ft('lanSending', { device: device.name }));
+
+  try {
+    const result = await window.companion.sendLanShareToDevice(device.id);
+
+    if (result?.canceled) {
+      return;
+    }
+
+    setStatusText(ft('lanSent', {
+      count: result?.count || 0,
+      device: result?.deviceName || device.name
+    }));
+  } catch (error: unknown) {
+    setStatusText(errorMessage(error, t('lanSendFailed')));
+  } finally {
+    lanSendingDeviceId.value = '';
+  }
+}
+
 async function toggleLanShare() {
   lanBusy.value = true;
 
@@ -294,6 +370,12 @@ onMounted(() => {
     loadLanShareStatus().catch(() => null)
   ]);
 
+  refreshLanDevices().catch(() => null);
+
+  removeLanDevicesListener = window.companion.onLanShareDevicesChanged?.((payload = {}) => {
+    state.lanShare.devices = Array.isArray(payload.devices) ? payload.devices : [];
+  });
+
   removeUpdateListener = window.companion.onUpdateStatus?.((status: CompanionUpdateStatus = {}) => {
     if (['available', 'downloading', 'downloaded', 'error'].includes(status.state)) {
       setStatusText(status.message || '');
@@ -304,6 +386,7 @@ onMounted(() => {
 // 组件卸载时释放更新事件监听。
 onUnmounted(() => {
   removeUpdateListener?.();
+  removeLanDevicesListener?.();
 });
 </script>
 
@@ -439,7 +522,22 @@ onUnmounted(() => {
     <section class="lan-card">
       <div class="provider-head">
         <strong>{{ t('lanShare') }}</strong>
-        <span id="lanShareStatus">{{ state.lanShare.enabled ? t('enabled') : t('disabled') }}</span>
+        <div class="lan-head-actions">
+          <span id="lanShareStatus">{{ state.lanShare.enabled ? t('enabled') : t('disabled') }}</span>
+          <button
+            v-if="state.lanShare.enabled"
+            class="field-icon-button"
+            id="lanRefreshButton"
+            type="button"
+            :aria-label="t('lanRefresh')"
+            :title="t('lanRefresh')"
+            @click.stop="refreshLanDevices"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 12a9 9 0 0 1-15.6 6.1M3 12a9 9 0 0 1 15.6-6.1M18 3v4h-4M6 21v-4h4" />
+            </svg>
+          </button>
+        </div>
       </div>
       <label class="permission-toggle">
         <input
@@ -451,7 +549,30 @@ onUnmounted(() => {
         />
         <span>{{ t('lanAllow') }}</span>
       </label>
-      <div class="lan-share-url" id="lanShareUrl">{{ lanShareUrl }}</div>
+      <div class="lan-share-url" id="lanShareUrl">{{ lanShareSummary }}</div>
+      <div v-if="state.lanShare.enabled" class="lan-share-help">{{ t('lanDevicesHint') }}</div>
+      <div v-if="state.lanShare.enabled" class="lan-share-diagnostics">{{ lanDiagnosticText }}</div>
+      <div v-if="state.lanShare.enabled" class="lan-share-security">{{ lanSecurityText }}</div>
+      <div v-if="state.lanShare.enabled && lanDevices.length === 0" class="lan-share-help">{{ lanTroubleshootingText }}</div>
+      <div v-if="state.lanShare.enabled" class="lan-device-list">
+        <button
+          v-for="device in lanDevices"
+          :key="device.id"
+          class="lan-device-button"
+          type="button"
+          :disabled="Boolean(lanSendingDeviceId)"
+          @click="sendToLanDevice(device)"
+        >
+          <span>
+            <strong>{{ device.name }}</strong>
+            <small>{{ ft('lanDeviceAddress', { address: device.address || '-' }) }}</small>
+          </span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12h14M13 5l7 7-7 7" />
+          </svg>
+        </button>
+        <div v-if="lanDevices.length === 0" class="lan-device-empty">{{ t('lanDevicesEmpty') }}</div>
+      </div>
     </section>
 
     <section class="guide-card">
@@ -599,6 +720,25 @@ onUnmounted(() => {
   box-shadow: inset 3px 0 0 rgba(106, 168, 255, 0.26);
 }
 
+.lan-head-actions {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.lan-head-actions .field-icon-button {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.lan-head-actions .field-icon-button svg {
+  width: 13px;
+  height: 13px;
+}
+
 .lan-share-url {
   min-width: 0;
   margin-top: 4px;
@@ -611,6 +751,121 @@ onUnmounted(() => {
   font-weight: 700;
   line-height: 15px;
   overflow-wrap: anywhere;
+}
+
+.lan-share-help {
+  min-width: 0;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 14px;
+}
+
+.lan-share-diagnostics,
+.lan-share-security {
+  min-width: 0;
+  margin-top: 6px;
+  padding: 7px 8px;
+  border: 1px solid rgba(157, 178, 194, 0.14);
+  border-radius: 7px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 9.8px;
+  font-weight: 650;
+  line-height: 14px;
+  overflow-wrap: anywhere;
+}
+
+.lan-share-security {
+  border-color: rgba(67, 240, 206, 0.18);
+  color: rgba(168, 255, 243, 0.78);
+  background: rgba(67, 240, 206, 0.045);
+}
+
+.lan-device-list {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.lan-device-button {
+  min-width: 0;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1px solid rgba(106, 168, 255, 0.2);
+  border-radius: 8px;
+  color: var(--ink);
+  background: rgba(106, 168, 255, 0.06);
+  text-align: left;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease, transform 120ms var(--ease-snap);
+}
+
+.lan-device-button > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.lan-device-button strong,
+.lan-device-button small {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lan-device-button strong {
+  font-size: 11px;
+  font-weight: 850;
+  line-height: 15px;
+}
+
+.lan-device-button small {
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 650;
+  line-height: 13px;
+}
+
+.lan-device-button svg {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  stroke-width: 2;
+}
+
+.lan-device-button:hover:not(:disabled) {
+  border-color: rgba(67, 240, 206, 0.38);
+  background: rgba(67, 240, 206, 0.09);
+  transform: translateY(-1px);
+}
+
+.lan-device-button:hover:not(:disabled) svg {
+  color: var(--accent);
+}
+
+.lan-device-button:disabled {
+  cursor: wait;
+  opacity: 0.52;
+}
+
+.lan-device-empty {
+  min-width: 0;
+  padding: 8px;
+  border: 1px dashed rgba(157, 178, 194, 0.18);
+  border-radius: 8px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
 }
 
 .guide-card {
@@ -857,6 +1112,46 @@ onUnmounted(() => {
   border-color: rgba(54, 59, 52, 0.14);
   background: rgba(255, 253, 247, 0.82);
   box-shadow: inset 3px 0 0 rgba(20, 121, 111, 0.2), 0 8px 18px rgba(52, 45, 35, 0.05);
+}
+
+.settings-panel.is-light .lan-share-url,
+.settings-panel.is-light .lan-share-help,
+.settings-panel.is-light .lan-share-diagnostics,
+.settings-panel.is-light .lan-device-button small,
+.settings-panel.is-light .lan-device-empty {
+  color: #6b746f;
+}
+
+.settings-panel.is-light .lan-share-url {
+  border-color: rgba(54, 59, 52, 0.14);
+  background: rgba(250, 248, 240, 0.68);
+}
+
+.settings-panel.is-light .lan-share-diagnostics {
+  border-color: rgba(54, 59, 52, 0.12);
+  background: rgba(250, 248, 240, 0.54);
+}
+
+.settings-panel.is-light .lan-share-security {
+  color: #14796f;
+  border-color: rgba(20, 121, 111, 0.16);
+  background: rgba(229, 244, 238, 0.58);
+}
+
+.settings-panel.is-light .lan-device-button {
+  color: #18221f;
+  border-color: rgba(20, 121, 111, 0.18);
+  background: rgba(229, 244, 238, 0.6);
+}
+
+.settings-panel.is-light .lan-device-button:hover:not(:disabled) {
+  border-color: rgba(214, 63, 99, 0.28);
+  background: rgba(255, 232, 224, 0.72);
+}
+
+.settings-panel.is-light .lan-device-empty {
+  border-color: rgba(54, 59, 52, 0.14);
+  background: rgba(250, 248, 240, 0.54);
 }
 
 .settings-panel.is-light .field-icon-button {

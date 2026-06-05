@@ -582,6 +582,16 @@ function getCompactAnchorBounds(bounds) {
 
 }
 
+function getExpandedBoundsFromAnchor(anchor) {
+  const expanded = WINDOW_SIZES.expanded;
+  return fitBoundsToDisplay({
+    x: Math.round(anchor.x),
+    y: Math.round(anchor.y),
+    width: expanded.width,
+    height: expanded.height
+  });
+}
+
 
 
 function consumeCompactAnswerRestoreBounds() {
@@ -743,12 +753,7 @@ export function setWindowMode(mode) {
   }
   mainState.mainWindow.setResizable(true);
   mainState.mainWindow.setMinimumSize(expanded.minWidth, expanded.minHeight);
-  mainState.mainWindow.setBounds(fitBoundsToDisplay({
-    x: anchor.x + anchor.width - expanded.width,
-    y: anchor.y,
-    width: expanded.width,
-    height: expanded.height
-  }), false);
+  mainState.mainWindow.setBounds(getExpandedBoundsFromAnchor(anchor), false);
   return emitWindowMode();
 }
 
@@ -1142,21 +1147,32 @@ export function createWindow() {
     mainState.mainWindow.loadFile(path.join(RENDERER_DIST, 'index.html'));
   }
 
-  mainState.mainWindow.once('ready-to-show', () => {
+  let mainWindowShown = false;
+  const showMainWindowOnce = () => {
+    if (mainWindowShown || !mainState.mainWindow || mainState.mainWindow.isDestroyed()) {
+      return;
+    }
 
+    mainWindowShown = true;
     mainState.mainWindow.show();
-
+    mainState.mainWindow.focus();
     emitWindowMode();
+  };
 
-  });
+  mainState.mainWindow.once('ready-to-show', showMainWindowOnce);
 
 
 
   mainState.mainWindow.webContents.once('did-finish-load', () => {
 
+    showMainWindowOnce();
+
     emitWindowMode();
 
   });
+
+  const showFallbackTimer = setTimeout(showMainWindowOnce, 1500);
+  showFallbackTimer.unref?.();
 
 
 
