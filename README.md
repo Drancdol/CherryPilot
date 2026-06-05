@@ -139,7 +139,7 @@ src/renderer/controller.ts    UI controller, compact prompt, localization, setti
 src/capture/main.ts           Capture interaction
 src/index.html                Main window HTML shell
 src/capture.html              Capture window HTML shell
-src/styles.css                Main UI styles
+src/styles.less               Shared UI variables and base styles
 src/capture.css               Capture styles
 src/assets/                   App icons
 vite.renderer.config.ts       Vite renderer build config
