@@ -15,6 +15,7 @@ import {
   COMPACT_VISIBLE_STRIP,
   CONTEXT_POLL_INTERVAL_MS,
   PRELOAD_PATH,
+  DEV_SERVER_URL,
   RENDERER_DIST,
   WINDOW_SIZES
 } from '@/main/entity';
@@ -1134,8 +1135,12 @@ export function createWindow() {
 
   mainState.mainWindow.setMenuBarVisibility(false);
 
-  mainState.mainWindow.loadFile(path.join(RENDERER_DIST, 'index.html'));
-  mainState.mainWindow.webContents.openDevTools();
+  if (DEV_SERVER_URL) {
+    mainState.mainWindow.loadURL(DEV_SERVER_URL);
+    mainState.mainWindow.webContents.openDevTools();
+  } else {
+    mainState.mainWindow.loadFile(path.join(RENDERER_DIST, 'index.html'));
+  }
 
   mainState.mainWindow.once('ready-to-show', () => {
 

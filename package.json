@@ -4,7 +4,7 @@
   "description": "A floating desktop AI pilot that reads context, captures selected screen areas, and answers from screenshots or documents.",
   "main": "dist-electron/main.cjs",
   "scripts": {
-    "dev": "npm run build && electron .",
+    "dev": "node scripts/dev-electron.js",
     "start": "npm run dev",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",

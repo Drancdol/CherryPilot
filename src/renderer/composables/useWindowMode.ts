@@ -111,13 +111,11 @@ export async function showExitContextBlock(event: Event) {
   if (companionState.windowMode !== 'compact') {
     return;
   }
-
   if (!companionState.revealed) {
     await window.companion.revealCompactWindow();
     companionState.revealed = true;
   }
-
-  companionState.contextMenuOpen = true;
+  companionState.contextMenuOpen = !companionState.contextMenuOpen;
 }
 
 // 点击悬浮球或退出按钮外部时隐藏退出上下文菜单。
@@ -136,8 +134,8 @@ export async function toggleCompactPanel() {
     companionState.revealed = false;
     return false;
   }
-
   await window.companion.revealCompactWindow();
+
   companionState.revealed = true;
   return true;
 }
