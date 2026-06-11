@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick } from 'vue';
-import type { ProviderState } from '@/renderer/composables/companionState';
+import type { ProviderState } from '@/renderer/stores/companion';
 
 // 父组件传入的接口配置和显示文案，本组件只负责渲染单张接口卡片。
 const props = defineProps<{
